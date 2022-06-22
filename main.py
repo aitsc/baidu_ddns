@@ -1,6 +1,7 @@
 from lib import DDNS, get_date_str, ipv4_func, log_init, json_load
 import time
 from pathlib import Path
+import datetime
 
 
 if __name__ == "__main__":
@@ -25,7 +26,8 @@ if __name__ == "__main__":
                     logger=logger,
                 )
                 if successful:
+                    print(datetime.datetime.now())
                     logger('='*5 + f"Above domain name: {domain_info['name']}")
             except Exception as e:
                 logger(f"ddns_obj SET failed: {e}")
-        time.sleep(15)  # 检测间隔时间，秒
+        time.sleep(30)  # 检测间隔时间，秒
