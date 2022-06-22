@@ -11,8 +11,8 @@
 - 保留较为完整的日志
 
 #### 使用方法
-1. 在 `assets/config.json` 中配置自己的一级域名和 AK、SK
-2. 在 `main.py` 中配置更新频率与同步 IP 类型
+1. 在 `assets/my_config.json` 中配置自己的一级域名和 AK、SK
+2. 在 `assets/domain.json` 中配置相关信息: [{"name": "xxx","ip_type": "ipv4","ttl": 60},..]
 3. 安装相关依赖包
 ```bash
 pip install -r requirement.txt

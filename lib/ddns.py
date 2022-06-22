@@ -2,7 +2,7 @@ import hmac
 import time
 import requests 
 import urllib.parse
-from mtutils import json_load
+from .mtutils import json_load
 import socket
 import json
 import re
@@ -10,13 +10,14 @@ import re
 
 class DDNS:    
     IP_TYPE = ['ipv4', 'ipv6']
-    def __init__(self, url, AK, SK):
+    def __init__(self, url, AK, SK, ipv4_func=None):
         self.url=url
         self.AK=AK
         self.SK=SK
+        self.ipv4_func=ipv4_func  # 用于自定义获取ipv4
 
     @classmethod
-    def from_cofig(cls, config_json_path):
+    def from_cofig(cls, config_json_path, ipv4_func=None):
         config_info = json_load(config_json_path)
         url = config_info['url']
         assert url != "", f"请在assets / config.json 中配置 url"
@@ -24,7 +25,7 @@ class DDNS:
         assert AK != "", f"请在assets / config.json 中配置 AK"
         SK = config_info['SK']
         assert SK != "", f"请在assets / config.json 中配置 SK"
-        return cls(url, AK, SK)
+        return cls(url, AK, SK, ipv4_func)
 
     def getTime(self):#获取网络时间戳，用于鉴权
         url="http://api.m.taobao.com/rest/api3.do?api=mtop.common.getTimestamp"
@@ -35,12 +36,14 @@ class DDNS:
     def getIP(self, ip_type):#获取本地公网IP
         assert ip_type in self.IP_TYPE
         if ip_type == 'ipv4':
-        
-            url="http://pv.sohu.com/cityjson?ie=utf-8"
-            res=requests.get(url,timeout=5).text
-            res=res.split("=")[1].split(";")[0] #转换javascript为json格式
-            res=json.loads(res)
-            res=res["cip"]
+            if self.ipv4_func is None:
+                url="http://pv.sohu.com/cityjson?ie=utf-8"
+                res=requests.get(url,timeout=5).text
+                res=res.split("=")[1].split(";")[0] #转换javascript为json格式
+                res=json.loads(res)
+                res=res["cip"]
+            else:
+                res=self.ipv4_func()
 
         elif ip_type == 'ipv6':
             url="https://ipv6.ipw.cn/"
@@ -131,14 +134,13 @@ class DDNS:
       
         return domain_info
     
-    def SET(self, domain, ip_type, logger):
+    def SET(self, domain, ip_type, logger, ttl=60):
         assert ip_type in self.IP_TYPE
-        logger("ddns ready to update data. ")
+        # logger("ddns ready to update data. ")
 
         # ip
         try:
             local_ip = self.getIP(ip_type)
-            logger(f"get local IP: {local_ip}")
         except Exception as e:
             logger(f"get local IP failed, exception {e}")
             return False
@@ -150,26 +152,26 @@ class DDNS:
             rd_type = 'AAAA'
         else:
             raise RuntimeError(f"unknown ip_type {ip_type}")
-        logger(f"ip type {rd_type}")
+        # logger(f"ip type {rd_type}")
 
         # record
         try:
             domain_info=self.get_domain_info(domain)
-            logger(f"get domain info: {domain_info}")
             dns_ip = domain_info['rdata'].upper()
             recordId = domain_info['recordId']
         except Exception as e:
             logger(f"get domain_info failed, exception {e}")
             return False
 
+        successful = False
         if local_ip!=dns_ip:
-            logger(f"local IP changed, a update will be launched.")
+            # logger(f"local IP changed, a update will be launched.")
             url="/v1/domain/resolve/edit"
             data={
                     "domain" : domain,
                     "rdType" : rd_type,
                     "rdata" : local_ip,
-                    "ttl" : 60,
+                    "ttl" : ttl,
                     "zoneName" : self.url,
                     "recordId" : recordId
                 }
@@ -181,6 +183,11 @@ class DDNS:
                 logger(f"DDNS update failed, error code {split_lit[1]}")
                 logger(f"http responce: {res_str}")
             else:
-                logger("DDNS update successfully !!!")
+                logger(f"get domain info: {domain_info}")
+                logger(f"set local IP: {local_ip}")
+                # logger("DDNS update successfully !!!")
+                successful = True
         else:
-            logger("local IP is same as reomte IP, skip updating.")
+            # logger("local IP is same as reomte IP, skip updating.")
+            ...
+        return successful
